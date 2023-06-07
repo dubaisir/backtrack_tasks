@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Task Results</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/css/task_result.css">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+</head>
+
+<body>
+<div class="container mt-5">
+    <h1>Task Results</h1>
+    <div class="form-row mt-4">
+        <div class="form-group col-md-4">
+            <label for="taskNameFilter">Task Name:</label>
+            <select class="form-control" id="taskNameFilter">
+                <option value="">All</option>
+                {% for index, row in task_names.iterrows() %}
+                    <option value="{{ row['task_name'] }}">{{ row['task_name'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group col-md-4">
+            <label for="statusFilter">Status:</label>
+            <select class="form-control" id="statusFilter">
+                <option value="">All</option>
+                <option value="Success">Success</option>
+                <option value="Failed">Failed</option>
+                <option value="Running">Running</option>
+                <option value="Queue">Queue</option>
+            </select>
+        </div>
+        <div class="form-group col-md-4">
+            <button class="btn btn-danger clear-button" onclick="clearLogs()">
+                <i class="bi bi-trash"></i> Clear Logs
+            </button>
+        </div>
+    </div>
+    <table class="table table-striped mt-4">
+        <thead>
+        <tr>
+            <th scope="col">Task Name</th>
+            <th scope="col">Task Date</th>
+            <th scope="col">Start Time</th>
+            <th scope="col">End Time</th>
+            <th scope="col">Runtime</th>
+            <th scope="col">Status</th>
+            <th scope="col">Actions</th>
+        </tr>
+        </thead>
+        <tbody id="taskResultsBody">
+        {% for index, row in task_results.iterrows() %}
+            <tr>
+                <td>{{ row['task_name'] }}</td>
+                <td>{{ row['event_day'] }}</td>
+                <td>{{ row['start_time'] }}</td>
+                <td>{{ row['end_time'] }}</td>
+                <td>{{ row['runtime'] }}</td>
+                <td class="{% if row['status'] == 'Success' %}text-success{% elif row['status'] == 'Failed' %}text-danger{% elif row['status'] in ( 'Running','Queue') %}text-primary{% endif %}">{{ row['status'] }}</td>
+                <!--                    <td>{{ row['status'] }}</td>-->
+                <td>
+                    {% if row['status'] == 'Failed' %}
+                        <button type="button" class="retry-button" task-type="{{ row['task_type'] }}" data-task-name="{{ row['task_name'] }}" data-event-day="{{ row['event_day'] }}" submitter="{{ row['submitter'] }}" id="{{ row['id'] }}"
+                                onclick="reTask(this.getAttribute('task-type'),this.getAttribute('data-task-name'),this.getAttribute('data-event-day'),this.getAttribute('submitter'),this.getAttribute('id'))">Retry
+                        </button>
+                    {% elif row['status'] == 'Running' %}
+                        <button type="button" class="kill-button" data-task-name="{{ row['task_name'] }}" data-event-day="{{ row['event_day'] }}" onclick="killTask(this.getAttribute('data-task-name'),this.getAttribute('data-event-day'))">
+                            Kill
+                        </button>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+
+    function clearLogs() {
+        if (confirm("确定要清空日志？")) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/clear', false);  // 设置同步请求
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        alert("日志已清空！");
+                        location.reload();
+                    } else {
+                        console.error('清空日志请求失败！');
+                    }
+                }
+            };
+            xhr.send();
+        }
+    }
+
+    function killTask(taskName, eventDay) {
+        if (confirm("确定要kill该任务以及未提交的任务？")) {
+            fetch('/kill', {
+                method: 'POST',
+                body: JSON.stringify({task_name: taskName, event_day: eventDay}),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.text())
+                .then(result => {
+                    // 在此处处理后端返回的结果
+                    alert(result);
+                    location.reload()
+
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+    }
+
+    function reTask(taskType, taskName, eventDay, submitter, id) {
+        if (confirm("确定要重试该任务吗？")) {
+            fetch('/retry', {
+                method: 'POST',
+                body: JSON.stringify({task_name: taskName, task_type: taskType, event_day: eventDay, submitter: submitter, id: id}),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(() => {
+                    alert("已提交重试任务");
+                    location.reload();
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert("重试成功！");
+                    } else {
+                        throw new Error('请求失败！');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+    }
+
+    // 获取筛选器元素
+    const taskNameFilter = document.getElementById('taskNameFilter');
+    const statusFilter = document.getElementById('statusFilter');
+
+    // 监听筛选器变化事件
+    taskNameFilter.addEventListener('input', filterTasks);
+    statusFilter.addEventListener('change', filterTasks);
+
+    function filterTasks() {
+        const taskName = taskNameFilter.value;
+        const status = statusFilter.value;
+
+        // 获取表格行元素
+        const rows = document.querySelectorAll('#taskResultsBody tr');
+
+        // 遍历表格行，并根据筛选器的值进行显示/隐藏
+        rows.forEach(row => {
+            const rowTaskName = row.querySelector('td:nth-child(1)').textContent.trim();
+            const rowStatus = row.querySelector('td:nth-child(6)').textContent.trim();
+
+            if ((taskName === '' || rowTaskName.includes(taskName)) && (status === '' || rowStatus === status)) {
+                row.style.display = 'table-row';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+</script>
+</body>
+</html>

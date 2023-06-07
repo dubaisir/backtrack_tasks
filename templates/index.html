@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>任务执行器</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <style>
+        .container {
+            margin-top: 50px;
+            max-width: 500px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center">任务执行器</h1>
+    <form id="task-form">
+        <div class="form-group">
+            <label for="task-user">用户</label>
+            <select class="form-control" id="task-user" name="task_user">
+                {% for key, value in work_dir.items() %}
+                <option value="{{ key }}">{{ key }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="task-type">任务类型</label>
+            <select class="form-control" id="task-type" name="task_type">
+                <option value="sh">sh</option>
+                <!--        <option value="type2">类型2</option>-->
+                <!--        <option value="type3">类型3</option>-->
+                <!-- 可以根据需求添加更多的选项 -->
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="task-name">任务名称</label>
+            <input type="text" class="form-control" id="task-name" name="task_name" placeholder="请输入任务名称">
+        </div>
+        <div class="form-group">
+            <label for="start-date">开始日期</label>
+            <input type="date" class="form-control" id="start-date" name="start_date">
+        </div>
+        <div class="form-group">
+            <label for="end-date">结束日期</label>
+            <input type="date" class="form-control" id="end-date" name="end_date">
+        </div>
+        <div class="form-group">
+            <label for="concurrency">并发数量</label>
+            <input type="number" class="form-control" id="concurrency" name="concurrency" min="1" max="10" value="1">
+        </div>
+        <button type="button" class="btn btn-primary" onclick="executeTask()">执行任务</button>
+        <button type="button" class="btn btn-secondary" id="preview-btn">预览命令</button>
+        <button type="button" class="btn btn-primary" onclick="getTaskResult()">运行结果</button>
+
+    </form>
+    <div class="mt-3">
+        <h5>预览命令</h5>
+        <pre id="preview-result"></pre>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.1/dist/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script>
+
+    // JavaScript 代码
+    // 可以使用 jQuery 或原生 JavaScript 来处理前端表单提交、异步请求等操作
+    // 在这里编写您的前端逻辑代码
+    var today = new Date();
+    var yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    document.getElementById('start-date').valueAsDate = yesterday;
+    document.getElementById('end-date').valueAsDate = yesterday;
+
+    var lastTaskType = localStorage.getItem('taskType');
+    var lastTaskName = localStorage.getItem('taskName');
+    var lasttaskUser = localStorage.getItem('submitter');
+
+    if (lastTaskType) {
+        document.getElementById('task-user').value = lastTaskType;
+    }
+    if (lastTaskName) {
+        document.getElementById('task-name').value = lastTaskName;
+    }
+    if (lasttaskUser) {
+        document.getElementById('task-user').value = lasttaskUser;
+    }
+
+    // 预览命令按钮点击事件
+    $("#preview-btn").on("click", function () {
+        var taskType = $("#task-type").val();
+        var taskName = $("#task-name").val();
+        var startDate = $("#start-date").val().replaceAll('-', '');
+
+        var command = taskType + " " + taskName + " " + startDate;
+        document.getElementById('preview-result').innerText = command;
+    });
+
+    function check(taskType, taskName, concurrency, startDate, endDate) {
+        var startDateObj = new Date(startDate);
+        var endDateObj = new Date(endDate);
+
+        // 计算运行天数
+        var timeDifference = endDateObj - startDateObj;
+        var daysDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24) + 1);
+
+        hasError = false;
+
+        // 检查任务类型和任务名称是否含有空格
+        if (taskType.trim() === '' || taskName.trim() === '') {
+            alert("任务类型和任务名称不能为空");
+            hasError = true;
+        } else if (/\s/.test(taskType) || !/^[a-zA-Z0-9\/_.]*$/.test(taskName)) {
+            alert("任务类型和任务名称不能包含特殊字符");
+            hasError = true;
+        }
+        // 验证任务名称是否以".sh"结尾
+        else if (!taskName.endsWith(".sh")) {
+            alert("任务名称必须以'.sh'结尾");
+            hasError = true;
+        }
+        // 验证任务名称长度是否小于100
+        else if (taskName.length >= 100) {
+            alert("任务名称长度不能超过100个字符");
+            hasError = true;
+        }
+        // 验证并发数是否为数字
+        else if (isNaN(concurrency)) {
+            alert("并发数必须为数字");
+            hasError = true;
+        } else if (daysDifference < 0) {
+            alert("结束日期小于开始日期");
+            hasError = true;
+        }
+        return [hasError, daysDifference]
+    }
+
+    function executeTask() {
+        var taskType = document.getElementById('task-type').value;
+        var taskName = document.getElementById('task-name').value;
+        var startDate = document.getElementById('start-date').value;
+        var endDate = document.getElementById('end-date').value;
+        var concurrency = parseInt(document.getElementById('concurrency').value);
+        var taskUser = document.getElementById('task-user').value;
+
+        const [hasError, daysDifference] = check(taskType, taskName, concurrency, startDate, endDate)
+
+        if (!hasError) {
+            // 弹窗显示运行天数
+            var confirmMessage = '运行天数：' + daysDifference + '天\n\n是否确认提交任务？';
+            var confirmed = confirm(confirmMessage);
+        }
+
+        if (!hasError && confirmed) { // 构建请求体数据
+            localStorage.setItem('taskType', taskType);
+            localStorage.setItem('taskName', taskName);
+            localStorage.setItem('submitter', taskUser);
+            var data = {
+                'task_type': taskType,
+                'task_name': taskName,
+                'start_date': startDate,
+                'end_date': endDate,
+                'concurrency': concurrency,
+                'submitter': taskUser
+            };
+            // 发送POST请求到后端接口
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/submit_task'); // 替换成submit_task接口的URL
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            alert("提交成功");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        // alert("提交成功");
+                    } else {
+                        // 请求失败，处理错误逻辑
+                      // if (concurrency !== 1)  {alert("提交失败，请重试。。。");}
+                        console.error('请求失败', xhr.statusText);
+                    }
+                }
+            };
+            xhr.send(JSON.stringify(data));
+        }
+    }
+
+    function getTaskResult() {
+        window.location.href = "/get_task_result";  // 跳转到获取任务结果的路由
+    }
+
+</script>
+</body>
+</html>

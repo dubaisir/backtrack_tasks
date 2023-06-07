@@ -1,0 +1,91 @@
+/* 设置表格的宽度和字体大小 */
+table {
+    width: 100%;
+    font-size: 14px;
+}
+
+/* 设置表头的背景颜色、文字颜色和字体粗细 */
+thead th {
+    background-color: #f8f9fa;
+    color: #212529;
+    font-weight: bold;
+}
+
+/* 设置表格行的鼠标悬停效果 */
+tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* 设置表格单元格的内边距和边框 */
+td, th {
+    padding: 8px;
+    border: 1px solid #dee2e6;
+}
+
+/* 设置表格单元格中的文字居中对齐 */
+td, th {
+    text-align: center;
+}
+
+
+.retry-button {
+    background-color: #4CAF50; /* Green */
+    border: none;
+    color: white;
+    padding: 5px 7px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 14px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.kill-button {
+    background-color: #f44336; /* Red */
+    border: none;
+    color: white;
+    padding: 5px 7px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 14px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.clear-button {
+    vertical-align: bottom;
+    margin-top: 31px;
+    background-color: #ffffff;
+    color: #dc3545;
+    border-color: #dc3545;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.clear-button:hover,
+.clear-button:focus {
+    background-color: #dc3545;
+    color: #ffffff;
+    border-color: #dc3545;
+}
+
+.clear-button:active {
+    background-color: #bd2130;
+    color: #ffffff;
+    border-color: #bd2130;
+}
+
+.clear-button:active {
+    background-color: #bd2130;
+    border-color: #bd2130;
+}
+
+
+
+
+
+
+
