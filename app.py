@@ -25,7 +25,7 @@ id = 0
 
 
 def get_queue_status():
-    url = 'http://cnn-bd-main-normandy.dmop.baidu.com:8033/tracker?action=queue&queue=cnn-bd-main-standard&physical=level1_phy_bddx'
+    url = 'http:'
     req = requests.get(url)
     req_json = req.json()
     queue_info = req_json['queues'][0]
@@ -52,7 +52,7 @@ def alarm(group_id, content, user):
                   }],
              }
     }
-    response = requests.post('http://apiin.im.baidu.com/api/msg/groupmsgsend?access_token=d5ded04a508c8e7bf89dd9683f0d5f5a9', headers=headers, json=json_data)
+    response = requests.post('http:', headers=headers, json=json_data)
     return response.json()
 
 
