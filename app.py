@@ -32,7 +32,7 @@ def get_queue_status():
 
     usedCpuPercent = int(float(re.findall(r'\d+\.\d+|\d+', queue_info['usedCpuPercent'])[0]))
     usedMemPercent = int(float(re.findall(r'\d+\.\d+|\d+', queue_info['usedMemPercent'])[0]))
-    if usedCpuPercent <= 80 and usedMemPercent <= 80:
+    if usedCpuPercent <= 75 and usedMemPercent <= 75:
         return 1
     return 0
 
@@ -204,7 +204,7 @@ def retry():
 @app.route('/clear', methods=['POST'])
 def clear():
     global task_log_df
-    if any(status in ['running', 'queue'] for status in task_log_df['status']):
+    if any(status in ['Running', 'Queue'] for status in task_log_df['status']):
         return "Cannot clear logs while there are tasks in 'running' or 'queue' status."
     else:
         task_log_df = pd.DataFrame(columns=['id', 'task_type', 'task_name', 'event_day', 'start_time', 'end_time', 'runtime', 'status', 'submitter'])
