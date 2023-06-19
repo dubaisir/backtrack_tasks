@@ -2,6 +2,7 @@ import datetime
 import importlib
 import json
 import os
+import random
 import re
 import time
 from conf import work_dir, log_max_line
@@ -101,7 +102,7 @@ def execute_task(id, task_type, task_name, event_day, submitter, is_retry, concu
             else:
                 with task_log_lock:
                     task_log_df.loc[task_log_df['id'] == id, 'status'] = 'Queue'
-                time.sleep(30)
+                time.sleep(random.randint(10, 300))
         command = "cd %s && %s %s %s" % (work_dir[submitter], task_type, task_name, event_day)
         print(datetime.datetime.now(), command)
         return_code = os.system(command)
@@ -144,6 +145,7 @@ def submit_task():
     data = request.get_json()
     task_type = data['task_type']
     task_name = data['task_name']
+    task_cycle = data['task_cycle']
     submitter = data['submitter']
     start_date = datetime.datetime.strptime(data['start_date'], '%Y-%m-%d')
     end_date = datetime.datetime.strptime(data['end_date'], '%Y-%m-%d')
@@ -155,12 +157,21 @@ def submit_task():
     futures[task_name] = []
     print(f" Task {task_type} {task_name} {start_date} {end_date} is executed with concurrency {concurrency}")
     with ThreadPoolExecutor(max_workers=concurrency) as t:
-        for i in range(num_days):
+        current_date = start_date
+        while current_date <= end_date:
             with id_lock:
                 id += 1
-            current_date = start_date + datetime.timedelta(days=i)
-            process = t.submit(execute_task, id, task_type, task_name, current_date.strftime('%Y%m%d'), submitter, False, concurrency)
-            futures[task_name].append(process)
+            if task_cycle == '日':
+                process = t.submit(execute_task, id, task_type, task_name, current_date.strftime('%Y%m%d'), submitter, False, concurrency)
+                futures[task_name].append(process)
+                current_date += datetime.timedelta(days=1)
+            elif task_cycle == '月':
+                current_date = current_date.replace(day=1)
+                end_date = end_date.replace(day=1)
+                process = t.submit(execute_task, id, task_type, task_name, current_date.strftime('%Y%m%d'), submitter, False, concurrency)
+                futures[task_name].append(process)
+                from dateutil.relativedelta import relativedelta
+                current_date += relativedelta(months=1)
     return 'Task submitted.'
 
 

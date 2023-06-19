@@ -45,6 +45,14 @@
             <input type="date" class="form-control" id="end-date" name="end_date">
         </div>
         <div class="form-group">
+            <label for="task-cycle">运行周期</label>
+            <div id="task-cycle" name="task_cycle">
+                <label><input type="radio" name="task_cycle" value="日" checked> 日</label>
+                <label><input type="radio" name="task_cycle" value="月"> 月</label>
+                <!-- 可以根据需求添加更多的选项 -->
+            </div>
+        </div>
+        <div class="form-group">
             <label for="concurrency">并发数量</label>
             <input type="number" class="form-control" id="concurrency" name="concurrency" min="1" max="10" value="1">
         </div>
@@ -75,7 +83,8 @@
 
     var lastTaskType = localStorage.getItem('taskType');
     var lastTaskName = localStorage.getItem('taskName');
-    var lasttaskUser = localStorage.getItem('submitter');
+    var lastTaskUser = localStorage.getItem('submitter');
+    var lastTaskCycle = localStorage.getItem('taskCycle');
 
     if (lastTaskType) {
         document.getElementById('task-user').value = lastTaskType;
@@ -83,68 +92,93 @@
     if (lastTaskName) {
         document.getElementById('task-name').value = lastTaskName;
     }
-    if (lasttaskUser) {
-        document.getElementById('task-user').value = lasttaskUser;
+    if (lastTaskUser) {
+        document.getElementById('task-user').value = lastTaskUser;
     }
+    if (lastTaskCycle) {
+        document.getElementById('task-cycle').value = lastTaskCycle;
+    }
+
+
+    var taskType = document.getElementById('task-type').value;
+    var taskName = document.getElementById('task-name').value;
+    var startDate = document.getElementById('start-date').value;
+    var endDate = document.getElementById('end-date').value;
+    var concurrency = parseInt(document.getElementById('concurrency').value);
+    var taskUser = document.getElementById('task-user').value;
+    var taskCycle = document.getElementById('task-cycle').querySelector('input:checked').value;
+
+
+    function getInput() {
+        taskType = document.getElementById('task-type').value;
+        taskName = document.getElementById('task-name').value;
+        startDate = document.getElementById('start-date').value;
+        endDate = document.getElementById('end-date').value;
+        concurrency = parseInt(document.getElementById('concurrency').value);
+        taskUser = document.getElementById('task-user').value;
+        taskCycle = document.getElementById('task-cycle').querySelector('input:checked').value;
+    }
+
 
     // 预览命令按钮点击事件
     $("#preview-btn").on("click", function () {
-        var taskType = $("#task-type").val();
-        var taskName = $("#task-name").val();
-        var startDate = $("#start-date").val().replaceAll('-', '');
-
-        var command = taskType + " " + taskName + " " + startDate;
-        document.getElementById('preview-result').innerText = command;
+        getInput();
+        var startDate1 = ""
+        if (taskCycle === "月") {
+            var startDateObj = new Date(startDate)
+            var year = startDateObj.getFullYear().toString();
+            var month = (startDateObj.getMonth() + 1).toString().padStart(2, '0');
+            var day = '01';
+            startDate1 = year + month + day;
+        } else {
+            startDate1 = startDate.replaceAll('-', '');
+        }
+        var command = taskType + " " + taskName + " " + startDate1;
+        var previewResultElem = document.getElementById('preview-result');
+        previewResultElem.innerHTML = ''; // 清空预览结果的内容
+        previewResultElem.innerHTML = command;
     });
 
-    function check(taskType, taskName, concurrency, startDate, endDate) {
+    function check() {
+        getInput();
         var startDateObj = new Date(startDate);
         var endDateObj = new Date(endDate);
-
+        var daysDifference = 0;
         // 计算运行天数
-        var timeDifference = endDateObj - startDateObj;
-        var daysDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24) + 1);
+        if (taskCycle === "月") {
+            startDateObj.setDate(1); // 设置为每月的第一天
+            endDateObj.setDate(1); // 设置为每月的第一天
+            daysDifference = (endDateObj.getFullYear() - startDateObj.getFullYear()) * 12 + (endDateObj.getMonth() - startDateObj.getMonth()) + 1;
+        } else {
+            var timeDifference = endDateObj - startDateObj;
+            daysDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24) + 1);
 
-        hasError = false;
+        }
 
-        // 检查任务类型和任务名称是否含有空格
-        if (taskType.trim() === '' || taskName.trim() === '') {
-            alert("任务类型和任务名称不能为空");
-            hasError = true;
-        } else if (/\s/.test(taskType) || !/^[a-zA-Z0-9\/_.]*$/.test(taskName)) {
-            alert("任务类型和任务名称不能包含特殊字符");
-            hasError = true;
+        var errorMessages = new Map();
+
+        // 添加条件检查的错误信息到映射中
+        errorMessages.set(taskType.trim() === '' || taskName.trim() === '', "任务类型和任务名称不能为空");
+        errorMessages.set(/\s/.test(taskType) || !/^[a-zA-Z0-9\/_.]*$/.test(taskName), "任务类型和任务名称不能包含特殊字符");
+        errorMessages.set(!taskName.endsWith(".sh"), "任务名称必须以'.sh'结尾");
+        errorMessages.set(taskName.length >= 100, "任务名称长度不能超过100个字符");
+        errorMessages.set(isNaN(concurrency), "并发数必须为数字");
+        errorMessages.set(daysDifference < 0, "结束日期小于开始日期");
+
+        // 遍历映射，检查是否有错误
+        for (var [condition, errorMessage] of errorMessages) {
+            if (condition) {
+                alert(errorMessage);
+                return [true, daysDifference];
+            }
         }
-        // 验证任务名称是否以".sh"结尾
-        else if (!taskName.endsWith(".sh")) {
-            alert("任务名称必须以'.sh'结尾");
-            hasError = true;
-        }
-        // 验证任务名称长度是否小于100
-        else if (taskName.length >= 100) {
-            alert("任务名称长度不能超过100个字符");
-            hasError = true;
-        }
-        // 验证并发数是否为数字
-        else if (isNaN(concurrency)) {
-            alert("并发数必须为数字");
-            hasError = true;
-        } else if (daysDifference < 0) {
-            alert("结束日期小于开始日期");
-            hasError = true;
-        }
-        return [hasError, daysDifference]
+
+        return [false, daysDifference];
     }
 
     function executeTask() {
-        var taskType = document.getElementById('task-type').value;
-        var taskName = document.getElementById('task-name').value;
-        var startDate = document.getElementById('start-date').value;
-        var endDate = document.getElementById('end-date').value;
-        var concurrency = parseInt(document.getElementById('concurrency').value);
-        var taskUser = document.getElementById('task-user').value;
-
-        const [hasError, daysDifference] = check(taskType, taskName, concurrency, startDate, endDate)
+        getInput();
+        const [hasError, daysDifference] = check()
 
         if (!hasError) {
             // 弹窗显示运行天数
@@ -156,12 +190,14 @@
             localStorage.setItem('taskType', taskType);
             localStorage.setItem('taskName', taskName);
             localStorage.setItem('submitter', taskUser);
+            localStorage.setItem('taskCycle', taskCycle);
             var data = {
                 'task_type': taskType,
                 'task_name': taskName,
                 'start_date': startDate,
                 'end_date': endDate,
                 'concurrency': concurrency,
+                'task_cycle': taskCycle,
                 'submitter': taskUser
             };
             // 发送POST请求到后端接口
@@ -175,7 +211,7 @@
                         // alert("提交成功");
                     } else {
                         // 请求失败，处理错误逻辑
-                      // if (concurrency !== 1)  {alert("提交失败，请重试。。。");}
+                        // if (concurrency !== 1)  {alert("提交失败，请重试。。。");}
                         console.error('请求失败', xhr.statusText);
                     }
                 }
